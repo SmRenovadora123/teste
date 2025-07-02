@@ -1,30 +1,26 @@
-const { default: makeWASocket, useSingleFileAuthState, DisconnectReason, MessageType, downloadContentFromMessage } = require('@whiskeysockets/baileys');
-const { Boom } = require('@hapi/boom');
+const { default: makeWASocket, DisconnectReason, useMultiFileAuthState } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const path = require('path');
 
-const { state, saveState } = useSingleFileAuthState('./auth_info.json'); // arquivo para salvar sessão
-
-const ADM_NUMBER = '5513997595234@s.whatsapp.net'; // OBS: com @s.whatsapp.net no Baileys
+const ADM_NUMBER = '5513997595234@s.whatsapp.net';
 
 async function startBot() {
+    const { state, saveCreds } = await useMultiFileAuthState('./auth_info');
+
     const sock = makeWASocket({
         auth: state,
         printQRInTerminal: true,
     });
 
-    sock.ev.on('creds.update', saveState);
+    sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect } = update;
         if (connection === 'close') {
-            const shouldReconnect = (lastDisconnect.error = new Boom(lastDisconnect?.error))?.output?.statusCode !== DisconnectReason.loggedOut;
-            console.log('Conexão fechada, tentando reconectar...', shouldReconnect);
-            if (shouldReconnect) {
-                startBot();
-            }
+            console.log('Conexão fechada, reconectando...');
+            startBot();
         } else if (connection === 'open') {
-            console.log('✅ Bot conectado com sucesso!');
+            console.log('✅ Bot conectado!');
         }
     });
 
@@ -40,8 +36,7 @@ async function startBot() {
 
         if (['oi', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'salve', 'eae'].includes(body)) {
             await sock.sendMessage(from, {
-                text: `🍕 Olá! Seja bem-vindo(a) à Francescolli Pizzaria! Quer pedir uma pizza deliciosa? \n\n` +
-                      `Digite:\n1 - Fazer pedido\n2 - Cardápio\n3 - Falar com atendente`
+                text: `🍕 Olá! Seja bem-vindo(a) à Francescolli Pizzaria! Quer pedir uma pizza deliciosa? \n\nDigite:\n1 - Fazer pedido\n2 - Cardápio\n3 - Falar com atendente`
             });
             return;
         }
